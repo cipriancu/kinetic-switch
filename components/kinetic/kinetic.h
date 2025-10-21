@@ -7,7 +7,6 @@
 namespace esphome {
 namespace kinetic {
 
-// Component care ascultă semnale radio și raportează ID-ul unui switch
 class KineticComponent : public Component, public remote_base::RemoteReceiverListener {
  public:
   sensor::Sensor *id_sensor_{nullptr};
@@ -15,9 +14,12 @@ class KineticComponent : public Component, public remote_base::RemoteReceiverLis
   void setup() override;
   void dump_config() override;
   void on_receive(remote_base::RemoteReceiveData data) override;
+
   void set_id_sensor(sensor::Sensor *sensor) { id_sensor_ = sensor; }
+
+ private:
+  bool decode_kinetic(const std::vector<uint32_t> &timings, uint32_t &id_value);
 };
 
 }  // namespace kinetic
 }  // namespace esphome
-
