@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome.components import remote_receiver, sensor
 from esphome.const import CONF_ID, CONF_REMOTE_RECEIVER
 
-CODEOWNERS = ["@user"] # Poti pune contul tau de GitHub
+CODEOWNERS = ["cipriancu"]
 
 # Definim namespace-ul C++ si clasa Sensorului
 my_rf_decoder_ns = cg.esphome_ns.namespace('my_rf_decoder')
