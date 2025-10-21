@@ -22,14 +22,7 @@ CONFIG_SCHEMA = cv.Schema(
     }
 )
 
-def to_code(config):
-    # Generam codul pentru componenta noastra (senzorul)
+async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    yield cg.register_component(var, config)
-    yield sensor.register_sensor(var, config)
-
-    # Obtinem referinta la remote_receiver
-    remote_receiver_var = yield cg.get_variable(config[CONF_REMOTE_RECEIVER])
-    
-    # Setam remote_receiver-ul in clasa noastra C++
-    cg.add(var.set_remote_receiver(remote_receiver_var))
+    await cg.register_component(var, config)
+    await remote_base.register_listener(var, config)
