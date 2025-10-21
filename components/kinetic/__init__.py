@@ -18,7 +18,7 @@ CONFIG_SCHEMA = cv.Schema({
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    await cg.register_component(var, config)
+    await cg.add_library("Sensor", None)
     await remote_base.register_listener(var, config)
 
     if "id_sensor" in config:
