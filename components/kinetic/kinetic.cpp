@@ -1,77 +1,67 @@
 #include "kinetic.h"
 #include "esphome/core/log.h"
-#include <cstdio>
 
 namespace esphome {
 namespace kinetic {
 
-static const char *const TAG = "kinetic";
+static const char *TAG = "kinetic";
 
 // Timings bazate pe rtl_433: s=40, l=100, r=1200
 static const int S_PULSE = 40;
 static const int L_PULSE = 100;
 static const int R_GAP = 1200;
+static const int TOLERANCE = 30;  // ±30%
 
-// Toleranta (folosim o marja de 30%)
-static const int TOLERANCE = 30; 
-
-// Functie utilitara pentru compararea timing-urilor
-bool matches(uint32_t a, uint32_t b) {
+static bool matches(uint32_t a, uint32_t b) {
   return (a > (b * (100 - TOLERANCE) / 100)) && (a < (b * (100 + TOLERANCE) / 100));
 }
 
-bool MyKineticSwitchDecoder::decode(remote_receiver::RemoteReceiveData *data) {
-    // Ne asiguram ca avem timings suficiente pentru a citi cel putin un pachet de 25 biti
-    if (data->timings.size() < 50) { // 25 biti * 2 timings/bit = 50 timings
-        return false;
-    }
-
-    uint32_t id_value = 0;
-    int bit_count = 0;
-    int data_start_index = 0; // Vom presupune ca datele incep de la index 0 pentru simplitate
-
-    // Logica OOK_PWM: Un bit e o pereche (puls + gol)
-    // Bitul 0: Puls Scurt (S) + Gol Lung (L)
-    // Bitul 1: Puls Lung (L) + Gol Scurt (S)
-    
-    // Cautam secventa de 25 de biti (sau mai mult, e.g. 50 de timings)
-    for (size_t i = data_start_index; i < data->timings.size() - 1 && bit_count < 25; i += 2) {
-        uint32_t pulse = data->timings[i];
-        uint32_t gap = data->timings[i+1];
-        
-        // Cauta un bit valid S+L sau L+S
-        if (matches(pulse, S_PULSE) && matches(gap, L_PULSE)) {
-            // Bit 0: S+L
-            id_value <<= 1;
-            id_value |= 0;
-            bit_count++;
-        } else if (matches(pulse, L_PULSE) && matches(gap, S_PULSE)) {
-            // Bit 1: L+S
-            id_value <<= 1;
-            id_value |= 1;
-            bit_count++;
-        } else {
-            // Daca nu se potriveste, semnalul nu este cel dorit sau am pierdut sincronizarea
-            // Daca vrei o decodare mai robusta, ar trebui sa cauti un preambul/reset (R=1200) inainte de a incepe
-            return false; 
-        }
-    }
-
-    if (bit_count == 25) {
-        ESP_LOGI(TAG, "Decodare reusita! ID: 0x%07X", id_value); // Afisam ID-ul in format Hex
-
-        // NOTA: Aici trebuie sa trimiti ID-ul la senzorul din YAML
-        // Asta necesita o referinta la clasa KineticSwitchSensor
-        // Deoarece decoderele sunt adaugate, ar trebui sa pastrezi referinta la senzor.
-
-        // TODO: In practica, trebuie sa obtii o referinta la KineticSwitchSensor si sa apelezi publish_id(id_value);
-        // De dragul exemplului, vom returna true.
-        return true; 
-    }
-
-    return false;
+void KineticComponent::setup() {
+  ESP_LOGI(TAG, "Kinetic component setup");
 }
-// ... Functia publish_id va converti uint32_t in string (hex) si va apela this->publish_state(id_hex_string);
-// ...
-} // namespace my_rf_decoder
-} // namespace esphome
+
+void KineticComponent::dump_config() {
+  ESP_LOGCONFIG(TAG, "Kinetic component ready");
+}
+
+void KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
+  uint32_t id_value = 0;
+  if (decode_kinetic(data.timings, id_value)) {
+    ESP_LOGI(TAG, "Decoded Kinetic ID: 0x%07X", id_value);
+    if (id_sensor_ != nullptr) {
+      id_sensor_->publish_state(id_value);
+    }
+  }
+}
+
+bool KineticComponent::decode_kinetic(const std::vector<uint32_t> &timings, uint32_t &id_value) {
+  if (timings.size() < 50)  // 25 bits * 2 timings/bit
+    return false;
+
+  id_value = 0;
+  int bit_count = 0;
+
+  for (size_t i = 0; i < timings.size() - 1 && bit_count < 25; i += 2) {
+    uint32_t pulse = timings[i];
+    uint32_t gap = timings[i + 1];
+
+    if (matches(pulse, S_PULSE) && matches(gap, L_PULSE)) {
+      id_value <<= 1;
+      bit_count++;
+    } else if (matches(pulse, L_PULSE) && matches(gap, S_PULSE)) {
+      id_value = (id_value << 1) | 1;
+      bit_count++;
+    } else if (matches(pulse, R_GAP)) {
+      // preambul — poți reseta sincronizarea aici dacă vrei
+      bit_count = 0;
+      id_value = 0;
+    } else {
+      return false;
+    }
+  }
+
+  return bit_count == 25;
+}
+
+}  // namespace kinetic
+}  // namespace esphome
