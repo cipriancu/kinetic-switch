@@ -1,7 +1,9 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import remote_receiver, sensor
-from esphome.const import CONF_ID, CONF_REMOTE_RECEIVER
+from esphome.const import CONF_ID
+from esphome.components import remote_receiver
+from esphome.components.remote_receiver import CONF_REMOTE_RECEIVER # Importul corect
 
 CODEOWNERS = ["cipriancu"]
 
