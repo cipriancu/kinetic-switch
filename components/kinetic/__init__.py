@@ -7,7 +7,7 @@ CODEOWNERS = ["@cipriancu"]
 DEPENDENCIES = ["remote_receiver"]
 
 kinetic_ns = cg.esphome_ns.namespace("kinetic")
-KineticComponent = kinetic_ns.class_("KineticComponent", cg.Component, remote_base.RemoteReceiverListener)
+KineticComponent = kinetic_ns.class_("KineticComponent", cg.Component)
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -18,8 +18,7 @@ CONFIG_SCHEMA = cv.Schema(
     }
 )
 
-
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await remote_base.register_listener(var)
+    await remote_base.register_listener(var, config)
