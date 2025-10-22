@@ -1,52 +1,34 @@
 #include "kinetic.h"
 #include "esphome/core/log.h"
-#include "esphome/components/remote_base/remote_base.h" // NOU!
 
 namespace esphome {
 namespace kinetic {
 
 static const char *const TAG = "kinetic";
 
-// Timings (aprox)
-static const int S_PULSE = 40;
-static const int L_PULSE = 100;
-static const int TOLERANCE = 30;
+void KineticComponent::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up Kinetic component...");
+}
 
-// ... (functia matches ramane neschimbata)
+void KineticComponent::dump_config() {
+  ESP_LOGCONFIG(TAG, "Kinetic component active.");
+}
 
-// ... (functia decode_kinetic ramane neschimbata)
-
-// Implementarea on_receive care inlocuieste logica din loop
-void KineticComponent::on_receive(const remote_base::RemoteReceiveData &data) {
-  // Accesam timings din data
-  const auto &timings = data.timings; 
-
-  // In acest punct, datele brute vin direct de la remote_receiver.
-  uint32_t id_value = 0;
-  if (decode_kinetic(timings, id_value)) {
-    if (id_value != this->last_id_) {
-      this->last_id_ = id_value;
-      ESP_LOGI(TAG, "Decoded Kinetic ID: 0x%07X", id_value);
-      publish_id(id_value);
+void KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
+  if (data.rtt > 0 && data.raw.size() > 0) {
+    uint32_t mock_code = 0;
+    for (auto v : data.raw) {
+      mock_code = (mock_code << 1) ^ (v > 1000 ? 1 : 0);
     }
-  } else {
-    // Mesaj de debugging in caz ca decodarea esueaza
-    ESP_LOGD(TAG, "Kinetic decode failed (len=%u)", (unsigned)timings.size());
+    handle_kinetic_code(mock_code);
   }
 }
 
-// Functia de publicare, implementata sa publice in senzor
-void KineticComponent::publish_id(uint32_t id_value) {
-  if (this->id_sensor_) {
-    // Convertim ID-ul numeric la un șir de caractere HEX pentru a-l publica ca senzor
-    // NOTA: Schimbați tipul senzorului in YAML in "text_sensor" daca doriti HEX.
-    char id_hex_str[9]; // 7 caractere Hex + null terminator
-    snprintf(id_hex_str, sizeof(id_hex_str), "%07X", id_value); 
-    
-    // Publicam valoarea ca text (HEX)
-    this->id_sensor_->publish_state(id_hex_str); 
-    ESP_LOGD(TAG, "Published ID 0x%s to sensor", id_hex_str);
-  }
+void KineticComponent::handle_kinetic_code(uint32_t code) {
+  ESP_LOGD(TAG, "Received kinetic code: 0x%08X", code);
+
+  // Aici poți face ce vrei cu codul — momentan doar loghează.
+  // Poți ulterior să-l mapezi la un binary_sensor custom.
 }
 
 }  // namespace kinetic
