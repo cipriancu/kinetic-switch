@@ -7,7 +7,7 @@ namespace kinetic {
 static const char *const TAG = "kinetic";
 
 bool KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
-  auto values = data.get_data();  // vector<uint16_t>
+  auto values = data.get_raw_data();  // vector<uint16_t>
   ESP_LOGD(TAG, "Received %zu pulses", values.size());
 
   for (size_t i = 0; i < values.size() && i < 10; i++) {
