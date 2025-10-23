@@ -15,8 +15,7 @@ static bool matches_t(uint32_t measured, uint32_t expected, int tol_pct) {
   uint32_t high = expected * (100 + tol_pct) / 100;
   return dur >= low && dur <= high;
 }
-
-bool KineticComponent::decode_kinetic(const std::vector<uint32_t> &raw, uint32_t &id_value) {
+bool KineticComponent::decode_kinetic(const std::vector<int32_t> &raw, uint32_t &id_value) {
   // Build a timings vector with absolute durations (microsec-ish)
   std::vector<uint32_t> timings;
   timings.reserve(raw.size());
