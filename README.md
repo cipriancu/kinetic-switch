@@ -4,16 +4,17 @@ esphome custom components for kinetic switch
 Yalm config:
 
 external_components:
-  - source: github://cipriancu/kinetic-switch@main
-    components: [my_rf_decoder]
+  - source: github://cipriancu/kinetic-switch
+    components: [ kinetic ]
 
 remote_receiver:
-  pin: GPIO18 # Pinul la care este conectat receptorul 433MHz
-  # dump: raw 
+- id: rx_id
+  pin: $rx # GDO2
+  dump: raw
+
+
 
 # Definirea senzorului custom
-sensor:
-  - platform: my_rf_decoder 
-    name: "Switch Kinetic ID"
-    id: kinetic_id_sensor
-    remote_receiver: rx_id
+kinetic:
+  id: kinetic_component
+  receiver_id: rx_id
