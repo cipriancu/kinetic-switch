@@ -16,7 +16,8 @@ class KineticComponent : public Component, public remote_base::RemoteReceiverLis
  protected:
   // decode_kinetic primește vectorul de timpi "raw" (unsigned)
   // și returnează true + id_value dacă găsește un pachet valid de 25 biți.
-  bool decode_kinetic(const std::vector<uint32_t> &raw, uint32_t &id_value);
+  bool decode_kinetic(const std::vector<int32_t> &raw, uint32_t &id_value);
+
 
   // parametri (poți ajusta dacă vezi nevoie)
   static constexpr int S_PULSE = 40;
