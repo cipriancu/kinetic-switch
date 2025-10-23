@@ -72,11 +72,10 @@ bool KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
   }
 
   uint32_t id = 0;
-  if (decode_kinetic(raw, id)) {
-    ESP_LOGI(TAG, "Kinetic ID decoded: 0x%07" PRIX32 " (%u)", id, id);
-  } else {
-    ESP_LOGD(TAG, "Kinetic decode failed or not matching (len=%zu)", raw.size());
-  }
+  ESP_LOGI(TAG, "Raw pulses count: %d", raw.size());
+for (size_t i = 0; i < raw.size(); i++) {
+  ESP_LOGI(TAG, "Pulse[%d] = %d", i, raw[i]);
+}
 
   // returnăm true ca să indicăm că am procesat (sau cel puțin încercat)
   return true;
