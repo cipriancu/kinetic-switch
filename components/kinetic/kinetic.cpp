@@ -1,20 +1,86 @@
 #include "kinetic.h"
 #include "esphome/core/log.h"
+#include <cinttypes>
 
 namespace esphome {
 namespace kinetic {
 
 static const char *const TAG = "kinetic";
 
-bool KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
-  auto values = data.get_raw_data();  // vector<uint16_t>
-  ESP_LOGD(TAG, "Received %zu pulses", values.size());
+static bool matches_t(uint32_t measured, uint32_t expected, int tol_pct) {
+  // convert measured (unsigned) to signed int to handle negative encoded values
+  int32_t s = static_cast<int32_t>(measured);
+  uint32_t dur = (s < 0) ? static_cast<uint32_t>(-s) : static_cast<uint32_t>(s);
+  uint32_t low = expected * (100 - tol_pct) / 100;
+  uint32_t high = expected * (100 + tol_pct) / 100;
+  return dur >= low && dur <= high;
+}
 
-  for (size_t i = 0; i < values.size() && i < 10; i++) {
-    ESP_LOGD(TAG, "  Pulse[%zu] = %u", i, values[i]);
+bool KineticComponent::decode_kinetic(const std::vector<uint32_t> &raw, uint32_t &id_value) {
+  // Build a timings vector with absolute durations (microsec-ish)
+  std::vector<uint32_t> timings;
+  timings.reserve(raw.size());
+  for (auto v : raw) {
+    int32_t sv = static_cast<int32_t>(v);
+    uint32_t dur = (sv < 0) ? static_cast<uint32_t>(-sv) : static_cast<uint32_t>(sv);
+    timings.push_back(dur);
   }
 
-  return true;  // semnal procesat
+  // Need at least 25 bits * 2 = 50 timings
+  if (timings.size() < 50) return false;
+
+  id_value = 0;
+  int bit_count = 0;
+
+  // Căutăm 25 biți; bit -> (pulse + gap)
+  for (size_t i = 0; i + 1 < timings.size() && bit_count < 25; i += 2) {
+    uint32_t pulse = timings[i];
+    uint32_t gap = timings[i + 1];
+
+    if (matches_t(pulse, S_PULSE, TOLERANCE) && matches_t(gap, L_PULSE, TOLERANCE)) {
+      // bit 0
+      id_value <<= 1;
+      bit_count++;
+    } else if (matches_t(pulse, L_PULSE, TOLERANCE) && matches_t(gap, S_PULSE, TOLERANCE)) {
+      // bit 1
+      id_value = (id_value << 1) | 1;
+      bit_count++;
+    } else {
+      // posibil preambul (R_GAP) -> resetați sincronizarea dacă detectați R
+      if (matches_t(pulse, R_GAP, TOLERANCE) || matches_t(gap, R_GAP, TOLERANCE)) {
+        id_value = 0;
+        bit_count = 0;
+        // nu incrementăm i altfel; continuăm
+        continue;
+      }
+      // nu se potrivește; abandonăm
+      return false;
+    }
+  }
+
+  return (bit_count == 25);
+}
+
+bool KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
+  // obținem raw pulses (unsigned values); funcția get_raw_data() returnează vector<uint32_t>
+  auto raw = data.get_raw_data();
+  ESP_LOGD(TAG, "Received %zu pulses (raw)", raw.size());
+
+  // debug: log primele câteva (opțional)
+  for (size_t i = 0; i < raw.size() && i < 12; ++i) {
+    int32_t sv = static_cast<int32_t>(raw[i]);
+    ESP_LOGD(TAG, "  Raw[%zu] = %" PRId32, i, sv);
+  }
+
+  uint32_t id = 0;
+  if (decode_kinetic(raw, id)) {
+    ESP_LOGI(TAG, "Kinetic ID decoded: 0x%07" PRIX32 " (%u)", id, id);
+  } else {
+    ESP_LOGD(TAG, "Kinetic decode failed or not matching (len=%zu)", raw.size());
+  }
+
+  // returnăm true ca să indicăm că am procesat (sau cel puțin încercat)
+  return true;
 }
 
 }  // namespace kinetic
