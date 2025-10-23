@@ -15,15 +15,23 @@ static bool matches_t(uint32_t measured, uint32_t expected, int tol_pct) {
   uint32_t high = expected * (100 + tol_pct) / 100;
   return dur >= low && dur <= high;
 }
-bool KineticComponent::decode_kinetic(const std::vector<int32_t> &raw, uint32_t &id_value) {
-  // Build a timings vector with absolute durations (microsec-ish)
-  std::vector<uint32_t> timings;
-  timings.reserve(raw.size());
-  for (auto v : raw) {
-    int32_t sv = static_cast<int32_t>(v);
-    uint32_t dur = (sv < 0) ? static_cast<uint32_t>(-sv) : static_cast<uint32_t>(sv);
-    timings.push_back(dur);
+bool KineticComponent::decode_kinetic(const std::vector<uint32_t> &raw, uint32_t &id_value) {
+  if (raw.size() < 10) return false;
+
+  id_value = 0;
+  for (size_t i = 0; i + 1 < raw.size(); i += 2) {
+    uint32_t high = raw[i];
+    uint32_t low  = abs((int32_t)raw[i + 1]);
+    // scurt = 1, lung = 0 (sau invers, după caz)
+    bool bit = (low < 300);  // prag ~300 µs, ajustabil
+    id_value = (id_value << 1) | (bit ? 1 : 0);
   }
+
+  // Filtru simplu: ignoră zgomotul scurt
+  if (id_value == 0 || id_value == 0xFFFFFFFF) return false;
+
+  return true;
+}
 
   // Need at least 25 bits * 2 = 50 timings
   if (timings.size() < 50) return false;
