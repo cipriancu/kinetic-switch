@@ -32,7 +32,7 @@ class KineticComponent : public Component, public remote_base::RemoteReceiverLis
   static constexpr int TOLERANCE_WIDE = 50; // Toleranță pentru Gap-ul Lung (50%)
   
   // Numărul de biți de decodat pentru codul Kinetic (25 biți)
-  static constexpr int KINETIC_BITS = 25;
+  static constexpr int KINETIC_BITS = 15;
   // Lungimea minimă a vectorului RAW necesară (KINETIC_BITS * 2)
   static constexpr int MIN_RAW_LEN = KINETIC_BITS * 2;
 };
