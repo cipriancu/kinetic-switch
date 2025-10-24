@@ -19,13 +19,21 @@ class KineticComponent : public Component, public remote_base::RemoteReceiverLis
   bool decode_kinetic(const std::vector<int32_t> &raw, uint32_t &id_value);
 
 
-  // parametri (poți ajusta dacă vezi nevoie)
-  static constexpr int S_PULSE = 165;
-  static constexpr int L_PULSE = 300;
-  static constexpr int R_GAP = 1700;
-  static constexpr int S_GAP_EXPECTED = 100; // Valori noi pentru claritate
-  static constexpr int L_GAP_EXPECTED = 430; // Valori noi pentru claritate
-  static constexpr int TOLERANCE = 40;  // ±30%
+// CONSTANTE RECALIBRATE PE BAZA LOGURILOR (165/300)
+  static constexpr int S_PULSE = 165;   // Puls Scurt (Aprox. 150-185)
+  static constexpr int L_PULSE = 300;   // Puls Lung (Aprox. 280-320)
+  
+  // Am redenumit Gap-urile pentru a fi mai clare în logica decodării
+  static constexpr int S_GAP_EXPECTED = 100; // Gap Scurt (Aprox. 75-125)
+  static constexpr int L_GAP_EXPECTED = 430; // Gap Lung (Aprox. 350-550)
+  
+  static constexpr int R_GAP = 1700;    // Gap de Reset/Preambul
+  static constexpr int TOLERANCE = 40;  // Toleranță crescută la ±40%
+  
+  // Numărul de biți de decodat pentru codul Kinetic (25 biți)
+  static constexpr int KINETIC_BITS = 25;
+  // Lungimea minimă a vectorului RAW necesară (KINETIC_BITS * 2)
+  static constexpr int MIN_RAW_LEN = KINETIC_BITS * 1;
 };
 
 }  // namespace kinetic
