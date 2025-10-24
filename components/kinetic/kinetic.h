@@ -20,10 +20,12 @@ class KineticComponent : public Component, public remote_base::RemoteReceiverLis
 
 
   // parametri (poți ajusta dacă vezi nevoie)
-  static constexpr int S_PULSE = 40;
-  static constexpr int L_PULSE = 100;
-  static constexpr int R_GAP = 1200;
-  static constexpr int TOLERANCE = 30;  // ±30%
+  static constexpr int S_PULSE = 165;
+  static constexpr int L_PULSE = 300;
+  static constexpr int R_GAP = 1700;
+  static constexpr int S_GAP_EXPECTED = 100; // Valori noi pentru claritate
+  static constexpr int L_GAP_EXPECTED = 430; // Valori noi pentru claritate
+  static constexpr int TOLERANCE = 40;  // ±30%
 };
 
 }  // namespace kinetic
