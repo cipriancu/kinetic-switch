@@ -17,64 +17,58 @@ static bool matches_t(uint32_t measured, uint32_t expected, int tol_pct) {
 }
 
 bool KineticComponent::decode_kinetic(const std::vector<int32_t> &raw, uint32_t &id_value) {
-  // raw: vector de durate semnate (Pulse > 0, Gap < 0)
+    // ... (verificare MIN_RAW_LEN OK) ...
 
-  // Verificăm dacă sunt suficiente date
-  if (raw.size() < MIN_RAW_LEN) {
-    // În acest caz, nu eșuăm direct, ci doar returnăm false,
-    // deoarece pachetele incomplete sunt normale.
-    return false;
-  }
+    id_value = 0;
+    int bit_count = 0;
+    size_t start_index = 0;
 
-  id_value = 0;
-  int bit_count = 0;
+    // 1. Căutăm punctul de start valid (primul puls pozitiv)
+    while (start_index < raw.size() && raw[start_index] <= 0) {
+        start_index++;
+    }
+    
+    // 2. Acum, start_index e primul puls. Căutăm perechi Puls/Gap de la acest punct.
+    for (size_t i = start_index; i + 1 < raw.size() && bit_count < KINETIC_BITS; i += 2) {
+        int32_t pulse_raw = raw[i];
+        int32_t gap_raw = raw[i + 1];
 
-// Căutăm 25 de biți (KINETIC_BITS)
-  // i + 1 < raw.size() asigură că avem o pereche pulse+gap
-  for (size_t i = 0; i + 1 < raw.size() && bit_count < KINETIC_BITS; i += 2) {
-    int32_t pulse_raw = raw[i];
-    int32_t gap_raw = raw[i + 1];
+        // Verificare de bază a polarității
+        if (pulse_raw <= 0 || gap_raw >= 0) {
+            return false; // Structură coruptă
+        }
 
-    // Verificarea de bază a polarității: Puls (pozitiv) urmat de Spațiu (negativ)
-    if (pulse_raw <= 0 || gap_raw >= 0) {
-      // Dacă structura e inversată (de exemplu, dacă începe cu un gap), putem resetat și ignora
-      id_value = 0;
-      bit_count = 0;
-      // Încercăm să continuăm de la următorul element (i+1)
-      i -= 1; 
-      continue;
+        uint32_t abs_pulse = static_cast<uint32_t>(pulse_raw);
+        uint32_t abs_gap = static_cast<uint32_t>(-gap_raw);
+
+        // Resetare/Skip dacă detectăm R_GAP (gap mare de separare pachete)
+        if (matches_t(abs_gap, R_GAP, TOLERANCE)) {
+             id_value = 0;
+             bit_count = 0;
+             // Ajustăm i pentru a reîncepe căutarea de la elementul de după R_GAP
+             i -= 1; 
+             continue;
+        }
+
+
+        // Bit 0: Puls Scurt (S) + Gap Lung (L)
+        // Aplicăm TOLERANCE_WIDE (50%) doar pentru L_GAP_EXPECTED
+        if (matches_t(abs_pulse, S_PULSE, TOLERANCE) && matches_t(abs_gap, L_GAP_EXPECTED, TOLERANCE_WIDE)) {
+            id_value <<= 1;
+            bit_count++;
+        } 
+        // Bit 1: Puls Lung (L) + Gap Scurt (S)
+        else if (matches_t(abs_pulse, L_PULSE, TOLERANCE) && matches_t(abs_gap, S_GAP_EXPECTED, TOLERANCE)) {
+            id_value = (id_value << 1) | 1;
+            bit_count++;
+        } 
+        else {
+            // Nu se potrivește niciun bit valid: Abandonăm decodarea
+            return false;
+        }
     }
 
-    // Luăm duratele absolute (în microsecunde)
-    uint32_t abs_pulse = static_cast<uint32_t>(pulse_raw);
-    uint32_t abs_gap = static_cast<uint32_t>(-gap_raw);
-
-    // Verificăm dacă este Gap de Reset mare (R_GAP)
-    if (matches_t(abs_gap, R_GAP, TOLERANCE)) {
-        // Dacă detectăm un R_GAP, resetăm decodarea și continuăm cu elementul următor
-        id_value = 0;
-        bit_count = 0;
-        continue;
-    }
-
-    // Bit 0: Puls Scurt + Gap Lung (S + L)
-    if (matches_t(abs_pulse, S_PULSE, TOLERANCE) && matches_t(abs_gap, L_GAP_EXPECTED, TOLERANCE)) {
-      id_value <<= 1;
-      bit_count++;
-    } 
-    // Bit 1: Puls Lung + Gap Scurt (L + S)
-    else if (matches_t(abs_pulse, L_PULSE, TOLERANCE) && matches_t(abs_gap, S_GAP_EXPECTED, TOLERANCE)) {
-      id_value = (id_value << 1) | 1;
-      bit_count++;
-    } 
-    else {
-      // Nu se potrivește niciun bit valid: Abandonăm decodarea pachetului curent
-      return false;
-    }
-  }
-
-  // Decodarea a reușit doar dacă am găsit exact KINETIC_BITS (25)
-  return (bit_count == KINETIC_BITS);
+    return (bit_count == KINETIC_BITS);
 }
 
 bool KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
