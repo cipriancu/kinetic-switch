@@ -48,16 +48,16 @@ bool KineticComponent::decode_kinetic(const std::vector<int32_t> &raw, uint32_t 
     uint32_t abs_pulse = static_cast<uint32_t>(pulse_raw);
     uint32_t abs_gap = static_cast<uint32_t>(-gap_raw);
 
-    // Bit 0: S_PULSE + L_PULSE
-    if (matches_t(abs_pulse, S_PULSE, TOLERANCE) && matches_t(abs_gap, L_PULSE, TOLERANCE)) {
+// Bit 0: Puls Scurt + Gap Lung (S + L)
+    if (matches_t(abs_pulse, S_PULSE, TOLERANCE) && matches_t(abs_gap, L_GAP_EXPECTED, TOLERANCE)) {
       id_value <<= 1;
       bit_count++;
     } 
-    // Bit 1: L_PULSE + S_PULSE
-    else if (matches_t(abs_pulse, L_PULSE, TOLERANCE) && matches_t(abs_gap, S_PULSE, TOLERANCE)) {
+    // Bit 1: Puls Lung + Gap Scurt (L + S)
+    else if (matches_t(abs_pulse, L_PULSE, TOLERANCE) && matches_t(abs_gap, S_GAP_EXPECTED, TOLERANCE)) {
       id_value = (id_value << 1) | 1;
       bit_count++;
-    } 
+    }
     else {
       // Nu se potrivește niciun bit valid
       return false;
