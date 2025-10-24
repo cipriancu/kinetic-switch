@@ -19,36 +19,45 @@ static bool matches_t(uint32_t measured, uint32_t expected, int tol_pct) {
 bool KineticComponent::decode_kinetic(const std::vector<int32_t> &raw, uint32_t &id_value) {
   // raw: vector de durate semnate (Pulse > 0, Gap < 0)
 
-  // Avem nevoie de cel puțin 25 de biți (25 pulsuri + 25 spații) = 50 de durate
-  if (raw.size() < 50) return false;
+  // Verificăm dacă sunt suficiente date
+  if (raw.size() < MIN_RAW_LEN) {
+    // În acest caz, nu eșuăm direct, ci doar returnăm false,
+    // deoarece pachetele incomplete sunt normale.
+    return false;
+  }
 
   id_value = 0;
   int bit_count = 0;
 
-  // Căutăm 25 de biți: bit -> (pulse + gap)
-  for (size_t i = 0; i + 1 < raw.size() && bit_count < 25; i += 2) {
+// Căutăm 25 de biți (KINETIC_BITS)
+  // i + 1 < raw.size() asigură că avem o pereche pulse+gap
+  for (size_t i = 0; i + 1 < raw.size() && bit_count < KINETIC_BITS; i += 2) {
     int32_t pulse_raw = raw[i];
     int32_t gap_raw = raw[i + 1];
 
-    // Verificare de bază: trebuie să fie Puls (pozitiv) urmat de Spațiu (negativ)
+    // Verificarea de bază a polarității: Puls (pozitiv) urmat de Spațiu (negativ)
     if (pulse_raw <= 0 || gap_raw >= 0) {
-      // Dacă este preambul, încercăm să resetăm, altfel eșuăm
-      if (std::abs(pulse_raw) > S_PULSE * 3 || std::abs(gap_raw) > S_PULSE * 3) {
-        // Presupunem că un puls/gap mult mai mare este un preambul sau o resetare
-        // Resetăm și continuăm (deși codul Kinetic nu folosește R_GAP în această formă)
-        id_value = 0;
-        bit_count = 0;
-        continue;
-      }
-      // Eșec dacă structura Puls/Gap este încălcată
-      return false;
+      // Dacă structura e inversată (de exemplu, dacă începe cu un gap), putem resetat și ignora
+      id_value = 0;
+      bit_count = 0;
+      // Încercăm să continuăm de la următorul element (i+1)
+      i -= 1; 
+      continue;
     }
 
-    // Luăm duratele absolute (în microsecunde) pentru comparație
+    // Luăm duratele absolute (în microsecunde)
     uint32_t abs_pulse = static_cast<uint32_t>(pulse_raw);
     uint32_t abs_gap = static_cast<uint32_t>(-gap_raw);
 
-// Bit 0: Puls Scurt + Gap Lung (S + L)
+    // Verificăm dacă este Gap de Reset mare (R_GAP)
+    if (matches_t(abs_gap, R_GAP, TOLERANCE)) {
+        // Dacă detectăm un R_GAP, resetăm decodarea și continuăm cu elementul următor
+        id_value = 0;
+        bit_count = 0;
+        continue;
+    }
+
+    // Bit 0: Puls Scurt + Gap Lung (S + L)
     if (matches_t(abs_pulse, S_PULSE, TOLERANCE) && matches_t(abs_gap, L_GAP_EXPECTED, TOLERANCE)) {
       id_value <<= 1;
       bit_count++;
@@ -57,14 +66,15 @@ bool KineticComponent::decode_kinetic(const std::vector<int32_t> &raw, uint32_t 
     else if (matches_t(abs_pulse, L_PULSE, TOLERANCE) && matches_t(abs_gap, S_GAP_EXPECTED, TOLERANCE)) {
       id_value = (id_value << 1) | 1;
       bit_count++;
-    }
+    } 
     else {
-      // Nu se potrivește niciun bit valid
+      // Nu se potrivește niciun bit valid: Abandonăm decodarea pachetului curent
       return false;
     }
   }
 
-  return (bit_count == 25);
+  // Decodarea a reușit doar dacă am găsit exact KINETIC_BITS (25)
+  return (bit_count == KINETIC_BITS);
 }
 
 bool KineticComponent::on_receive(remote_base::RemoteReceiveData data) {
